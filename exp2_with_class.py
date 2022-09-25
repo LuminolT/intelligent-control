@@ -1,8 +1,11 @@
+# from tkinter.messagebox import YES
 import control as ctl
 import matplotlib as plt
 import time
 
-class expPID():
+class PID():
+    
+    # --e(t)-->[PID Controller]--(u(t))-->[Plant]--(y(t))-->
     
     def __init__(self, kp: float, ki: float, kd: float, ts: float) -> None:
         
@@ -10,89 +13,61 @@ class expPID():
         self._Ki = ki
         self._Kd = kd
         self._Ts = ts   ## 采样间隔
-        self.inte_error = 0    # 直到上一次的误差值
-        self.pre_error = 0     # 上一次的误差值
-        self.time = []
-        self.r = []
-        self.u = []
-        self.y = []
-        self.error = []
-        self.ry = []
         
-        self.u_1 = 0
-        self.u_2 = 0
-        self.u_3 = 0
-        self.y_1 = 0
-        self.y_2 = 0
-        self.y_3 = 0
+    def process(self, t: float, set_point: float, et: list[list[float]], y: list[float], u: list[float], is_expert=False):
         
-        self.x = [0, 0, 0]
-        ## e(k) delta e(k) ∫e(k)
+        ## et: error table
         
-        self.x2_1 = 0
+        output_u = self._Kp*et[-1][0] + self._Ki*et[-1][1] + self._Kd*et[-1][2]
         
-        self.error_1 = 0
-        
-        ## Maintain the Integration process
-    
-    @property
-    def y(self):
-        return self.y
-    
-    @property
-    def u(self):
-        return self.u
-        
-    def process(self, t: float, set_point: float, u_t: float, num, den):
-    
-        self.time.append(t * self._Ts)
-        
-        self.r.append(1.0)                    #Tself.racing Step Signal
-        self.u.append(self._Kp*self.x[0]+self._Kd*self.x[1]+self._Ki*self.x[2]) #PID Contself.rolleself.r
-
-        # Rule 1
-        if (abs(self.x[0])>0.8):
-            self.u[t]=0.45
-        elif (abs(self.x[0])>0.40):
-            self.u[t]=0.40
-        elif (abs(self.x[0])>0.20):
-            self.u[t]=0.12 
-        elif (abs(self.x[0])>0.01):
-            self.u[t]=0.10   
-    
-        ## Rule 2
-        if (self.x[0]*self.x[1]>0 or (self.x[1]==0)):
-            if (abs(self.x[0])>=0.05):
-                self.u[t]=self.u_1+2*self._Kp*self.x[0]
-            else:
-                self.u[t]=self.u_1+0.4*self._Kp*self.x[0]
-
-        ## Rule 3
-        if ((self.x[0]*self.x[1]<0 and self.x[1]*self.x2_1>0) or (self.x[0]==0)):
-            self.u[t]=self.u[t]
-    
-        if (self.x[0]*self.x[1]<0 and self.x[1]*self.x2_1<0):   #self.rself.ule4
-            if (abs(self.x[0])>=0.05):
-                self.u[t]=self.u_1+2*self._Kp*self.error_1
-            else:
-                self.u[t]=self.u_1+0.6*self._Kp*self.error_1
-    
-        ## self.rself.ule5:Integself.ration sepaself.ration PI contself.rol
-        if (abs(self.x[0])<=0.001):   
-            self.u[t]=0.5*self.x[0]+0.010*self.x[2]
+        if is_expert:
+            ## Expert PID Controller
             
-        #self.restself.ricting the oself.utpself.ut of contself.rolleself.r
-        if (self.u[t]>=10):
-            self.u[t]=10
-        if (self.u[t]<=-10):
-            self.u[t]=-10
-    
-        #Lineaself.r model
-        self.y.append(-den[0][0][1]*self.y_1-den[0][0][2]*self.y_2-den[0][0][3]*self.y_3+num[0][0][0]*self.u_1+num[0][0][1]*self.u_2+num[0][0][2]*self.u_3)
-        
-        self.error.append(self.r[t] - self.y[t])
-        
-        return self.y[-1]
+            ## Rule 1. Open-loop
+            if abs(et[-1][0]) > 0.8:
+                output_u = 0.45
+            elif (abs(et[-1][0])>0.40):        
+                output_u = 0.40
+            elif (abs(et[-1][0])>0.20): 
+                output_u = 0.12
+            elif (abs(et[-1][0])>0.01):
+                output_u = 0.10
+                    
+            ## Rule 2. 
+            elif et[-1][0] * et[-1][2] > 0 or et[-1][2] == 0:
+                if abs(et[-1][0]) >= 0.05:
+                    output_u = u[-1] + 2*self._Kp*et[-1][2]
+                else:
+                    output_u = u[-1] + 0.4*self._Kp*et[-1][2]
+            
+            ## Rule 3.
+            elif et[-1][0] * et[-1][2] < 0 and et[-1][2] * et[-2][2] > 0 or et[-1][0] == 0:
+                output_u = self._Kp*et[-1][0] + self._Ki*et[-1][1] + self._Kd*et[-1][2]
+                
+            ## Rule 4.
+            elif et[-1][0] * et[-1][2] < 0 and et[-1][2] * et[-2][2] < 0:
+                if abs(et[-1][0] >= 0.05):
+                    output_u = u[-1] + 2*self._Kp*et[-1][0]
+                else:
+                    output_u = u[-1] + 0.6*self._Kp*et[-1][0]
+                    
+            ## Rule 5.
+            elif abs(et[-1][0] <= 0.001):
+                output_u = 0.5*et[-1][0] + 0.010*et[-1][1]
+                
+            else:
+                output_u = self._Kp*et[-1][0] + self._Ki*et[-1][1] + self._Kd*et[-1][2]
+            
+            u[-1] = 10 if u[-1] >= 10 else u[-1]
+            u[-1] = -10 if u[-1] <= -10 else u[-1]
+            
+        else:
+            ## Tradition PID Controller
+            # u(k)=kp*x(1)+kd*x(2)+ki*x(3); %PID Controller
+            output_u = self._Kp*et[-1][0] + self._Ki*et[-1][1] + self._Kd*et[-1][2]
+            
+        return output_u
+
 
 
 
@@ -103,21 +78,47 @@ def main():
     ki = 0.03
     ts = 0.001
     
+    print('YES')
+    
     sys = ctl.tf([523500], [1, 87.35, 10470, 0])
     dsys = ctl.c2d(sys, ts, 'zoh')
     [num, den] = ctl.tfdata(dsys)
     
-    pid = expPID(kp, kd, ki, ts)
+    pid = PID(kp, kd, ki, ts)
+    
+    y = [0,0,0]
+    u = [0,0,0]
+    
+    times = [0,0,0]
+    
+    et = [[0,0,0], [0,0,0], [0,0,0]]
+    
+    st_point = 1
     
     for i in range(500):
-        output = expPID.process(i, 1, output, num, den)
         
+        u_new = pid.process(i, st_point, et, y, u, True)
+        
+        y_new = -den[0][0][1]*y[-1]-den[0][0][2]*y[-2]-den[0][0][3]*y[-3]+num[0][0][0]*u_new+num[0][0][1]*u[-1]+num[0][0][2]*u[-2]+num[0][0][3]*u[-3]
+        
+        error = st_point - y_new
+        
+        tmp_errs = [error, et[-1][1]+error*ts, (error-et[-1][2])/ts]
+        
+        et.append(tmp_errs)
+        u.append(u_new)
+        y.append(y_new)
+        times.append(i*ts)
+    
     plt.figure(1)
-    plt.plot(time,r,'b',time,y,'r')
-    plt.xlabel('time(s)');plt.ylabel('r,y')
-    plt.figure(2)
-    plt.plot(time,ry,'r')
-    plt.xlabel('time(s)');plt.ylabel('error')
+    plt.plot(time,y,'r')
+    plt.xlabel('time(s)');plt.ylabel('y')
+    plt.show()
+    
+    print('wtf')
+    # plt.figure(2)
+    # plt.plot(time,ry,'r')
+    # plt.xlabel('time(s)');plt.ylabel('error')
     
     
 if __name__ == '__name__':
