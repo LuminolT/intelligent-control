@@ -99,6 +99,7 @@ ctlr = addRule(ctlr, rulelist);
 showrule(ctlr)
 
 % Use Centroid Defuzz Method
+ctlr.DefuzzificationMethod = 'mom';
 ctlr.DefuzzificationMethod
 
 % Write
