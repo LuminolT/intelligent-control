@@ -79,16 +79,26 @@ x(1)=e(k);                %Calculating P
 x(2)=(e(k)-e_1)/ts;       %Calculating D
 e_1=e(k);
 end
+
+hold on;
 figure(1);
-plot(time,r,'r',time,y,'b');
+plot(time,r,'r',time,y,'b',linewidth=1);
+legend('target', 'real')
+title('Square Wave Position Tracking');
+
+figure(3);
+plot(time,r-y,linewidth=1);
+title('Square Wave Position Tracking Error');
+
 xlabel('time(s)');ylabel('r and y');
 figure(2);
+title('Network, PD, Control Signal Comparison');
 subplot(311);
-plot(time,un,'b');
+plot(time,un,'b',linewidth=1);
 xlabel('time(s)');ylabel('un');
 subplot(312);
-plot(time,up,'k');
+plot(time,up,'k',linewidth=1);
 xlabel('time(s)');ylabel('up');
 subplot(313);
-plot(time,u,'r');
+plot(time,u,'r',linewidth=1);
 xlabel('time(s)');ylabel('u');
